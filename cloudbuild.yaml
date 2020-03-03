@@ -1,0 +1,11 @@
+steps:
+  - name: gcr.io/cloud-builders/gcloud
+    args:
+      - functions
+      - deploy
+      - subscribeSlack
+      - --region=us-central1
+      - --entry-point=subscribeSlack
+      - --memory=128MB
+      - --runtime=nodejs10
+      - --trigger-topic=cloud-builds
