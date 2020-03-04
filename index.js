@@ -1,5 +1,5 @@
-const moment = require("moment");
-const { IncomingWebhook } = require("@slack/webhook");
+const moment = require('moment');
+const { IncomingWebhook } = require('@slack/webhook');
 const url = process.env.SLACK_WEBHOOK_URL;
 
 const webhook = new IncomingWebhook(url);
@@ -16,13 +16,7 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   // Add additional statuses to list if you'd like:
   // QUEUED, WORKING, SUCCESS, FAILURE,
   // INTERNAL_ERROR, TIMEOUT, CANCELLED
-  const status = [
-    "SUCCESS",
-    "FAILURE",
-    "INTERNAL_ERROR",
-    "TIMEOUT",
-    "CANCELLED"
-  ];
+  const status = ['SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT', 'CANCELLED'];
   if (status.indexOf(build.status) === -1) {
     return;
   }
@@ -36,17 +30,17 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
 const eventToBuild = data => {
   // returns a Build object as described
   // https://cloud.google.com/cloud-build/docs/api/reference/rest/v1/projects.builds
-  return JSON.parse(Buffer.from(data, "base64").toString());
+  return JSON.parse(Buffer.from(data, 'base64').toString());
 };
 
 // createSlackMessage creates a message from a build object.
 const createSlackMessage = build => {
   const { logUrl, status, startTime, finishTime, images } = build;
-  const { repoName, branchName, projectId } = build.source.repoSource;
-  const { commitSha, tagName } = build.sourceProvenance.resolvedRepoSource;
+  const { repoName, branchName, projectId } = build.source.repoSource || {};
+  const { commitSha, tagName } = build.sourceProvenance.resolvedRepoSource || {};
 
   const mrkdwn = (text, verbatim = false) => {
-    return { type: "mrkdwn", text, verbatim };
+    return { type: 'mrkdwn', text, verbatim };
   };
 
   const mrkdwnField = (key, value) => {
@@ -62,39 +56,41 @@ const createSlackMessage = build => {
 
   const mrkdwnInlineCode = text => `\`${text}\``;
 
-  const timestamp = text => {
+  const mrkdwnTimestamp = text => {
     m = moment(text);
     return `<!date^${m.unix()}^{date_short_pretty} {time_secs}|${text}>`;
   };
 
-  const commitUrl = `https://source.cloud.google.com/${projectId}/${repoName}/+/${commitSha}`;
-  const shortSha = commitSha.substring(0, 7);
+  const commitUrl = build.source.repoSource
+    ? `https://source.cloud.google.com/${projectId}/${repoName}/+/${commitSha}`
+    : null;
+
+  const shortSha = build.source.repoSource ? commitSha.substring(0, 7) : null;
+
+  const commitLink = commitUrl ? mrkdwnLink(commitUrl, mrkdwnInlineCode(shortSha)) : 'n/a';
 
   const message = {
-    text: `${status}: ${branchName}`,
+    text: `${status}: ${branchName || build.id}`,
     blocks: [
       {
-        type: "section",
-        text: mrkdwn(mrkdwnLink(logUrl, "Build Logs"))
+        type: 'section',
+        text: mrkdwn(mrkdwnLink(logUrl, 'Build Logs')),
       },
       {
-        type: "section",
+        type: 'section',
         // limit 10
         fields: [
-          mrkdwnField("Status", status),
-          mrkdwnField("Repo", repo),
-          mrkdwnField("Branch", branchName),
-          mrkdwnField("Images", images.join("\n")),
-          mrkdwnField(
-            "Commit",
-            mrkdwnLink(commitUrl, mrkdwnInlineCode(shortSha))
-          ),
-          mrkdwnField("Tag", tagName || "n/a"),
-          mrkdwnField("Start", timestamp(startTime)),
-          mrkdwnField("Finish", timestamp(finishTime))
-        ]
-      }
-    ]
+          mrkdwnField('Status', status),
+          mrkdwnField('Repo', repo || 'n/a'),
+          mrkdwnField('Branch', branchName || 'n/a'),
+          mrkdwnField('Images', images.join('\n')),
+          mrkdwnField('Commit', commitLink),
+          mrkdwnField('Tag', tagName || 'n/a'),
+          mrkdwnField('Start', mrkdwnTimestamp(startTime)),
+          mrkdwnField('Finish', mrkdwnTimestamp(finishTime)),
+        ],
+      },
+    ],
   };
 
   // build.steps.forEach(step => {
