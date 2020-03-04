@@ -36,8 +36,10 @@ const eventToBuild = data => {
 // createSlackMessage creates a message from a build object.
 const createSlackMessage = build => {
   const { logUrl, status, startTime, finishTime, images } = build;
-  const { repoName, branchName, projectId } = build.source.repoSource || {};
-  const { commitSha, tagName } = build.sourceProvenance.resolvedRepoSource || {};
+  const repoSource = build.source.repoSource || {};
+  const resolvedRepoSource = build.sourceProvenance.resolvedRepoSource || {};
+  const { repoName, branchName, projectId } = repoSource;
+  const { commitSha, tagName } = resolvedRepoSource;
 
   const mrkdwn = (text, verbatim = false) => {
     return { type: 'mrkdwn', text, verbatim };
