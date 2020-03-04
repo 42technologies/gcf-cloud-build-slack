@@ -53,6 +53,15 @@ const createSlackMessage = build => {
     return mrkdwn(`*${key}:*\n${value}\n`);
   };
 
+  const mrkdwnLink = (href, text) => {
+    if (text) {
+      return `<${href}|${text}>`;
+    }
+    return `<${href}>`;
+  };
+
+  const mrkdwnInlineCode = text => `\`${text}\``;
+
   const timestamp = text => {
     m = moment(text);
     return `<!date^${m.unix()}^{date_short_pretty} {time_secs}|${text}>`;
@@ -66,20 +75,23 @@ const createSlackMessage = build => {
     blocks: [
       {
         type: "section",
-        text: mrkdwn(`*<${logUrl}|Build Logs>*\n`)
+        text: mrkdwn(mrkdwnLink(logUrl, "Build Logs"))
       },
       {
         type: "section",
         // limit 10
         fields: [
-          mrkdwnField('Status', status),
-          mrkdwnField('Repo', repo),
-          mrkdwnField('Branch', branchName),
-          mrkdwnField('Images', images.join('\n')),
-          mrkdwn(`*Commit:*\n<${commitUrl}|\`${shortSha}\`>\n`),
-          mrkdwnField('Tag', tagName || 'n/a'),
-          mrkdwnField('Start', timestamp(startTime)),
-          mrkdwnField('Finish', timestamp(finishTime))
+          mrkdwnField("Status", status),
+          mrkdwnField("Repo", repo),
+          mrkdwnField("Branch", branchName),
+          mrkdwnField("Images", images.join("\n")),
+          mrkdwnField(
+            "Commit",
+            mrkdwnLink(commitUrl, mrkdwnInlineCode(shortSha))
+          ),
+          mrkdwnField("Tag", tagName || "n/a"),
+          mrkdwnField("Start", timestamp(startTime)),
+          mrkdwnField("Finish", timestamp(finishTime))
         ]
       }
     ]
