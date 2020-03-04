@@ -80,7 +80,7 @@ const createSlackMessage = build => {
     blocks: [
       {
         type: 'section',
-        text: mrkdwn(mrkdwnLink(logUrl, 'Build Logs')),
+        text: mrkdwn(mrkdwnLink(logUrl, '*Build Logs*')),
       },
       {
         type: 'section',
