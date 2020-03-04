@@ -2,7 +2,7 @@ const moment = require('moment');
 const { IncomingWebhook } = require('@slack/webhook');
 const url = process.env.SLACK_WEBHOOK_URL;
 
-const webhook = new IncomingWebhook(url);
+const webhook = url ? new IncomingWebhook(url) : null;
 
 // subscribeSlack is the main function called by Cloud Functions.
 module.exports.subscribeSlack = (pubSubEvent, context) => {
@@ -23,7 +23,11 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
 
   // Send message to Slack.
   const message = createSlackMessage(build);
-  webhook.send(message);
+  if (webhook) {
+    webhook.send(message);
+  } else {
+    console.warn('unable to send message, $SLACK_WEBHOOK_URL not in environment', message);
+  }
 };
 
 // eventToBuild transforms pubsub event message to a build object.
