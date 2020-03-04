@@ -89,7 +89,7 @@ const createSlackMessage = build => {
           mrkdwnField('Status', status),
           mrkdwnField('Repo', repoName || 'n/a'),
           mrkdwnField('Branch', branchName || 'n/a'),
-          mrkdwnField('Images', images.join('\n')),
+          mrkdwnField('Images', (images || []).join('\n')),
           mrkdwnField('Commit', commitLink),
           mrkdwnField('Tag', tagName || 'n/a'),
           mrkdwnField('Start', mrkdwnTimestamp(startTime)),
