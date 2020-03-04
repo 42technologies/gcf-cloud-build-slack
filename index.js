@@ -12,6 +12,9 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   pubSubEvent.data = build;
   console.debug(JSON.stringify(pubSubEvent));
 
+  const message = createSlackMessage(build);
+  console.debug(JSON.stringify(message));
+
   // Skip if the current status is not in the status list.
   // Add additional statuses to list if you'd like:
   // QUEUED, WORKING, SUCCESS, FAILURE,
@@ -22,11 +25,10 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   }
 
   // Send message to Slack.
-  const message = createSlackMessage(build);
   if (webhook) {
     webhook.send(message);
   } else {
-    console.warn('unable to send message, $SLACK_WEBHOOK_URL not in environment', message);
+    console.warn('unable to send message, $SLACK_WEBHOOK_URL not in environment');
   }
 };
 
