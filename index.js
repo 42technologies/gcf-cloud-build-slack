@@ -45,11 +45,15 @@ const createSlackMessage = build => {
   const { repoName, branchName, projectId } = build.source.repoSource;
   const { commitSha, tagName } = build.sourceProvenance.resolvedRepoSource;
 
-  mrkdwn = (text, verbatim = false) => {
+  const mrkdwn = (text, verbatim = false) => {
     return { type: "mrkdwn", text, verbatim };
   };
 
-  timestamp = text => {
+  const mrkdwnField = (key, value) => {
+    return mrkdwn(`*${key}:*\n${value}\n`);
+  };
+
+  const timestamp = text => {
     m = moment(text);
     return `<!date^${m.unix()}^{date_short_pretty} {time_secs}|${text}>`;
   };
@@ -58,6 +62,7 @@ const createSlackMessage = build => {
   const shortSha = commitSha.substring(0, 7);
 
   const message = {
+    text: `${status}: ${branchName}`,
     blocks: [
       {
         type: "section",
@@ -67,17 +72,14 @@ const createSlackMessage = build => {
         type: "section",
         // limit 10
         fields: [
-          mrkdwn(`*Status:*\n${status}\n`),
-          mrkdwn(`*Repo:*\n${repoName}\n`),
-
-          mrkdwn(`*Branch:*\n${branchName}\n`),
-          mrkdwn(`*Images:*\n${images.join("\n")}\n`, true),
-
+          mrkdwnField('Status', status),
+          mrkdwnField('Repo', repo),
+          mrkdwnField('Branch', branchName),
+          mrkdwnField('Images', images.join('\n')),
           mrkdwn(`*Commit:*\n<${commitUrl}|\`${shortSha}\`>\n`),
-          mrkdwn(`*Tag:*\n${tagName}\n`),
-
-          mrkdwn(`*Start:*\n${timestamp(startTime)}\n`),
-          mrkdwn(`*Finish:*\n${timestamp(finishTime)}\n`)
+          mrkdwnField('Tag', tagName || 'n/a'),
+          mrkdwnField('Start', timestamp(startTime)),
+          mrkdwnField('Finish', timestamp(finishTime))
         ]
       }
     ]
