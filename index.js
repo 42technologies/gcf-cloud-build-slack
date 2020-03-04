@@ -87,7 +87,7 @@ const createSlackMessage = build => {
         // limit 10
         fields: [
           mrkdwnField('Status', status),
-          mrkdwnField('Repo', repo || 'n/a'),
+          mrkdwnField('Repo', repoName || 'n/a'),
           mrkdwnField('Branch', branchName || 'n/a'),
           mrkdwnField('Images', images.join('\n')),
           mrkdwnField('Commit', commitLink),
