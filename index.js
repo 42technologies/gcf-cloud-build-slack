@@ -69,11 +69,11 @@ const createSlackMessage = build => {
     return `<!date^${m.unix()}^{date_short_pretty} {time_secs}|${text}>`;
   };
 
-  const commitUrl = build.source.repoSource
+  const commitUrl = repoSource
     ? `https://source.cloud.google.com/${projectId}/${repoName}/+/${commitSha}`
     : null;
 
-  const shortSha = build.source.repoSource ? commitSha.substring(0, 7) : null;
+  const shortSha = repoSource ? commitSha.substring(0, 7) : null;
 
   const commitLink = commitUrl ? mrkdwnLink(commitUrl, mrkdwnInlineCode(shortSha)) : 'n/a';
 
