@@ -44,8 +44,8 @@ const createSlackMessage = build => {
   const { logUrl, status, startTime, finishTime, images } = build;
   const { repoSource } = build.source || {};
   const { resolvedRepoSource } = build.sourceProvenance || {};
-  const { repoName, branchName, projectId } = repoSource;
-  const { commitSha, tagName } = resolvedRepoSource;
+  const { repoName, branchName, projectId } = repoSource || {};
+  const { commitSha, tagName } = resolvedRepoSource || {};
 
   const mrkdwn = (text, verbatim = false) => {
     return { type: 'mrkdwn', text, verbatim };
