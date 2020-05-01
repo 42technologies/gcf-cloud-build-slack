@@ -23,7 +23,7 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   if (status.indexOf(build.status) === -1) return;
 
   const { tags } = build;
-  if ((tags || []).indexOf('schedule') >= 0 && status === 'SUCCESS') return;
+  if ((tags || []).indexOf('schedule') >= 0 && build.status === 'SUCCESS') return;
 
   // Send message to Slack.
   if (webhook) {
