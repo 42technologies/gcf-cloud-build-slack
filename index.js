@@ -20,9 +20,10 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   // QUEUED, WORKING, SUCCESS, FAILURE,
   // INTERNAL_ERROR, TIMEOUT, CANCELLED
   const status = ['SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT', 'CANCELLED'];
-  if (status.indexOf(build.status) === -1) {
-    return;
-  }
+  if (status.indexOf(build.status) === -1) return;
+
+  const { tags } = build;
+  if ((tags || []).indexOf('schedule') >= 0 && status === 'SUCCESS') return;
 
   // Send message to Slack.
   if (webhook) {
@@ -41,9 +42,9 @@ const eventToBuild = data => {
 
 // createSlackMessage creates a message from a build object.
 const createSlackMessage = build => {
-  const { logUrl, status, startTime, finishTime, images } = build;
-  const { repoSource } = build.source || {};
-  const { resolvedRepoSource } = build.sourceProvenance || {};
+  const { logUrl, status, startTime, finishTime, images, source, sourceProvenance } = build;
+  const { repoSource } = source || {};
+  const { resolvedRepoSource } = sourceProvenance || {};
   const { repoName, branchName, projectId } = repoSource || {};
   const { commitSha, tagName } = resolvedRepoSource || {};
 
@@ -69,9 +70,7 @@ const createSlackMessage = build => {
     return `<!date^${m.unix()}^{date_short_pretty} {time_secs}|${text}>`;
   };
 
-  const commitUrl = repoSource
-    ? `https://source.cloud.google.com/${projectId}/${repoName}/+/${commitSha}`
-    : null;
+  const commitUrl = repoSource ? `https://source.cloud.google.com/${projectId}/${repoName}/+/${commitSha}` : null;
 
   const shortSha = repoSource ? commitSha.substring(0, 7) : null;
 
