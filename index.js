@@ -2,6 +2,22 @@ const moment = require('moment');
 const { IncomingWebhook } = require('@slack/webhook');
 const url = process.env.SLACK_WEBHOOK_URL;
 
+const notifyStatuses = (function () {
+  const statuses = process.env.SLACK_NOTIFY_STATUSES;
+  if (statuses) return statuses.split(',').map(x => x.toUpperCase());
+  // Skip if the current status is not in the status list.
+  // Add additional statuses to list if you'd like:
+  // QUEUED, WORKING, SUCCESS, FAILURE,
+  // INTERNAL_ERROR, TIMEOUT, CANCELLED
+  return ['SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT', 'CANCELLED'];
+})();
+
+const ignoreTags = (function () {
+  const tags = process.env.SLACK_IGNORE_TAGS;
+  if (tags) return tags.split(',');
+  return ['schedule'];
+})();
+
 const webhook = url ? new IncomingWebhook(url) : null;
 
 // subscribeSlack is the main function called by Cloud Functions.
@@ -15,15 +31,11 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   const message = createSlackMessage(build);
   console.debug(JSON.stringify(message));
 
-  // Skip if the current status is not in the status list.
-  // Add additional statuses to list if you'd like:
-  // QUEUED, WORKING, SUCCESS, FAILURE,
-  // INTERNAL_ERROR, TIMEOUT, CANCELLED
-  const status = ['SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT', 'CANCELLED'];
-  if (status.indexOf(build.status) === -1) return;
+  const { tags, status } = build;
+  if (notifyStatuses.includes(status)) return;
 
-  const { tags } = build;
-  if ((tags || []).indexOf('schedule') >= 0 && build.status === 'SUCCESS') return;
+  const xTags = (tags || []).filter(v => ignoreTags.includes(v));
+  if (xTags.length > 0 && status === 'SUCCESS') return;
 
   // Send message to Slack.
   if (webhook) {
