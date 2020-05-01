@@ -32,7 +32,7 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   console.debug(JSON.stringify(message));
 
   const { tags, status } = build;
-  if (notifyStatuses.includes(status)) return;
+  if (!notifyStatuses.includes(status)) return;
 
   const xTags = (tags || []).filter(v => ignoreTags.includes(v));
   if (xTags.length > 0 && status === 'SUCCESS') return;
