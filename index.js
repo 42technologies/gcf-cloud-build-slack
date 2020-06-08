@@ -54,11 +54,15 @@ const eventToBuild = data => {
 
 // createSlackMessage creates a message from a build object.
 const createSlackMessage = build => {
-  const { logUrl, status, startTime, finishTime, images, source, sourceProvenance } = build;
+  const { logUrl, status, startTime, finishTime, images, source, sourceProvenance, substitutions } = build;
   const { repoSource } = source || {};
   const { resolvedRepoSource } = sourceProvenance || {};
-  const { repoName, branchName, projectId } = repoSource || {};
-  const { commitSha, tagName } = resolvedRepoSource || {};
+  let { repoName, branchName, projectId } = repoSource || {};
+  let { commitSha, tagName } = resolvedRepoSource || {};
+
+  repoName = repoName || (substitutions || {}).REPO_NAME;
+  branchName = branchName || (substitutions || {}).BRANCH_NAME;
+  commitSha = commitSha || (substitutions || {}).COMMIT_SHA || (substitutions || {}).REVISION_ID;
 
   const mrkdwn = (text, verbatim = false) => {
     return { type: 'mrkdwn', text, verbatim };
