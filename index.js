@@ -86,11 +86,10 @@ const createSlackMessage = build => {
     return `<!date^${m.unix()}^{date_short_pretty} {time_secs}|${text}>`;
   };
 
-  const commitUrl = repoSource ? `https://source.cloud.google.com/${projectId}/${repoName}/+/${commitSha}` : null;
-
-  const shortSha = repoSource ? commitSha.substring(0, 7) : null;
-
-  const commitLink = commitUrl ? mrkdwnLink(commitUrl, mrkdwnInlineCode(shortSha)) : 'n/a';
+  const hasRepoInfo = !!(projectId && repoName && commitSha);
+  const commitUrl = hasRepoInfo ? `https://source.cloud.google.com/${projectId}/${repoName}/+/${commitSha}` : null;
+  const shortSha = hasRepoInfo ? commitSha.substring(0, 7) : null;
+  const commitLink = hasRepoInfo ? mrkdwnLink(commitUrl, mrkdwnInlineCode(shortSha)) : 'n/a';
 
   const message = {
     text: `${status}: ${branchName || build.id}`,
