@@ -1,8 +1,32 @@
 const moment = require('moment');
 const { IncomingWebhook } = require('@slack/webhook');
-const url = process.env.SLACK_WEBHOOK_URL;
 
-const notifyStatuses = (function () {
+// Environment variables
+//
+// SLACK_WEBHOOK_URL:
+// SLACK_IGNORE_TAGS:
+// SLACK_NOTIFY_STATUSES:
+// SLACK_WEBHOOK_URL_FAILURE:
+// SLACK_FAILURE_STATUSES:
+
+let { SLACK_WEBHOOK_URL, SLACK_WEBHOOK_URL_FAILURE } = process.env;
+
+if (!SLACK_WEBHOOK_URL) {
+  throw new Error('Missing required SLACK_WEBHOOK_URL environment variable.');
+}
+
+const webhooks = {
+  general: new IncomingWebhook(SLACK_WEBHOOK_URL),
+  failure: SLACK_WEBHOOK_URL_FAILURE ? new IncomingWebhook(SLACK_WEBHOOK_URL_FAILURE) : null,
+};
+
+const failureStatuses = (() => {
+  const statuses = process.env.SLACK_FAILURE_STATUSES;
+  if (statuses) return statuses.split(',').map(x => x.toUpperCase());
+  return ['FAILURE', 'INTERNAL_ERROR', 'TIMEOUT'];
+})();
+
+const notifyStatuses = (() => {
   const statuses = process.env.SLACK_NOTIFY_STATUSES;
   if (statuses) return statuses.split(',').map(x => x.toUpperCase());
   // Skip if the current status is not in the status list.
@@ -12,13 +36,12 @@ const notifyStatuses = (function () {
   return ['SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT', 'CANCELLED'];
 })();
 
+// Don't send slack messages
 const ignoreTags = (function () {
   const tags = process.env.SLACK_IGNORE_TAGS;
   if (tags) return tags.split(',');
   return ['schedule'];
 })();
-
-const webhook = url ? new IncomingWebhook(url) : null;
 
 // subscribeSlack is the main function called by Cloud Functions.
 module.exports.subscribeSlack = (pubSubEvent, context) => {
@@ -37,12 +60,8 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   const xTags = (tags || []).filter(v => ignoreTags.includes(v));
   if (xTags.length > 0 && status === 'SUCCESS') return;
 
-  // Send message to Slack.
-  if (webhook) {
-    webhook.send(message);
-  } else {
-    console.warn('unable to send message, $SLACK_WEBHOOK_URL not in environment');
-  }
+  if (webhooks.failure && failureStatuses.includes(status)) webhooks.failure.send(message);
+  webhooks.general.send(message);
 };
 
 // eventToBuild transforms pubsub event message to a build object.
