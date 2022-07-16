@@ -7,5 +7,5 @@ steps:
       - --region=us-central1
       - --entry-point=subscribeSlack
       - --memory=128MB
-      - --runtime=nodejs10
+      - --runtime=nodejs16
       - --trigger-topic=cloud-builds

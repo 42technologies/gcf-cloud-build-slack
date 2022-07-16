@@ -9,16 +9,51 @@ const { IncomingWebhook } = require('@slack/webhook');
 // SLACK_WEBHOOK_URL_FAILURE:
 // SLACK_FAILURE_STATUSES:
 
+const statusCodes = {
+  CANCELLED: {
+    color: '#fbbc05',
+    text: 'Build cancelled',
+  },
+  FAILURE: {
+    color: '#ea4335',
+    text: 'Build failed',
+  },
+  INTERNAL_ERROR: {
+    color: '#ea4335',
+    text: 'Internal error encountered during build',
+  },
+  QUEUED: {
+    color: '#fbbc05',
+    text: 'New build queued',
+  },
+  SUCCESS: {
+    color: '#34a853',
+    text: 'Build successfully completed',
+  },
+  TIMEOUT: {
+    color: '#ea4335',
+    text: 'Build timed out',
+  },
+  WORKING: {
+    color: '#34a853',
+    text: 'New build in progress',
+  },
+  STATUS_UNKNOWN: {
+    color: '#444444',
+    text: 'Unknown build status',
+  },
+};
+
 let { SLACK_WEBHOOK_URL, SLACK_WEBHOOK_URL_FAILURE } = process.env;
 
-if (!SLACK_WEBHOOK_URL) {
-  throw new Error('Missing required SLACK_WEBHOOK_URL environment variable.');
-}
+// if (!SLACK_WEBHOOK_URL) {
+//   throw new Error('Missing required SLACK_WEBHOOK_URL environment variable.');
+// }
 
-const webhooks = {
-  general: new IncomingWebhook(SLACK_WEBHOOK_URL),
-  failure: SLACK_WEBHOOK_URL_FAILURE ? new IncomingWebhook(SLACK_WEBHOOK_URL_FAILURE) : null,
-};
+// const webhooks = {
+//   general: new IncomingWebhook(SLACK_WEBHOOK_URL),
+//   failure: SLACK_WEBHOOK_URL_FAILURE ? new IncomingWebhook(SLACK_WEBHOOK_URL_FAILURE) : null,
+// };
 
 const failureStatuses = (() => {
   const statuses = process.env.SLACK_FAILURE_STATUSES;
@@ -60,95 +95,159 @@ module.exports.subscribeSlack = (pubSubEvent, context) => {
   const xTags = (tags || []).filter(v => ignoreTags.includes(v));
   if (xTags.length > 0 && status === 'SUCCESS') return;
 
-  if (webhooks.failure && failureStatuses.includes(status)) webhooks.failure.send(message);
+  if (webhooks.failure && failureStatuses.includes(status)) {
+    webhooks.failure.send(message);
+  }
+
   webhooks.general.send(message);
 };
 
 // eventToBuild transforms pubsub event message to a build object.
-const eventToBuild = data => {
+const eventToBuild = (/** @type {string} */ data) => {
   // returns a Build object as described
   // https://cloud.google.com/cloud-build/docs/api/reference/rest/v1/projects.builds
   return JSON.parse(Buffer.from(data, 'base64').toString());
 };
 
-// createSlackMessage creates a message from a build object.
-const createSlackMessage = build => {
-  const { logUrl, status, startTime, finishTime, images, source, sourceProvenance, substitutions } = build;
-  const { repoSource } = source || {};
-  const { resolvedRepoSource } = sourceProvenance || {};
-  let { repoName, branchName, projectId } = repoSource || {};
-  let { commitSha, tagName } = resolvedRepoSource || {};
-
-  repoName = repoName || (substitutions || {}).REPO_NAME;
-  branchName = branchName || (substitutions || {}).BRANCH_NAME;
-  commitSha = commitSha || (substitutions || {}).COMMIT_SHA || (substitutions || {}).REVISION_ID;
-
-  const mrkdwn = (text, verbatim = false) => {
+const Markdown = (() => {
+  /**
+   * @arg {any} text
+   */
+  const markdown = (text, verbatim = false) => {
     return { type: 'mrkdwn', text, verbatim };
   };
-
-  const mrkdwnField = (key, value) => {
-    return mrkdwn(`*${key}:*\n${value}\n`);
+  /**
+   * @arg {any} key
+   * @arg {any} value
+   **/
+  const field = (key, value) => {
+    return markdown(`${key}\n*${value}*`);
   };
-
-  const mrkdwnLink = (href, text) => {
-    if (text) {
-      return `<${href}|${text}>`;
-    }
-    return `<${href}>`;
+  /**
+   * @arg {any} href
+   * @arg {any} text
+   **/
+  const link = (href, text) => {
+    return text ? `<${href}|${text}>` : `<${href}>`;
   };
-
-  const mrkdwnInlineCode = text => `\`${text}\``;
-
-  const mrkdwnTimestamp = text => {
-    m = moment(text);
+  /** @arg {string} text */
+  const code = text => {
+    return '`' + text + '`';
+  };
+  const timestamp = (/** @type {any} */ text) => {
+    const m = moment(text);
     return `<!date^${m.unix()}^{date_short_pretty} {time_secs}|${text}>`;
   };
+  return { markdown, field, link, code, timestamp };
+})();
 
-  const hasRepoInfo = !!(projectId && repoName && commitSha);
-  const commitUrl = hasRepoInfo ? `https://source.cloud.google.com/${projectId}/${repoName}/+/${commitSha}` : null;
-  const shortSha = hasRepoInfo ? commitSha.substring(0, 7) : null;
-  const commitLink = hasRepoInfo ? mrkdwnLink(commitUrl, mrkdwnInlineCode(shortSha)) : 'n/a';
+// createSlackMessage creates a message from a build object.
+/** @arg {import('@google-cloud/cloudbuild').protos.google.devtools.cloudbuild.v1.Build} build */
+const createSlackMessage = build => {
+  const statusMsg = {
+    text: statusCodes[build.status].text || build.status,
+    color: statusCodes[build.status].color || '#444444',
+  };
+  let { logUrl, startTime, finishTime, images, substitutions, tags } = build;
+
+  tags = tags || [];
+  tags = tags.filter(x => !x.startsWith('trigger-'));
+  const isScheduler = tags.includes('schedule');
+
+  images = images || [];
+
+  let repoName = (substitutions || {}).REPO_NAME;
+  let branchName = (substitutions || {}).BRANCH_NAME;
+  let commitSha = (substitutions || {}).COMMIT_SHA || (substitutions || {}).REVISION_ID;
+
+  /** @type {string | null} */
+  let orgId = null;
+  let type = null;
+  if (isScheduler) {
+    type = 'Schedule';
+    orgId = tags.filter(x => x !== 'schedule').join(', ');
+    tags = tags.filter(x => x !== 'schedule' && x !== orgId);
+  } else {
+    type = 'Build';
+  }
+
+  /** @type {any}[] */
+  let repoSection = [];
+  if (repoName || branchName || commitSha) {
+    repoSection = [
+      {
+        type: 'divider',
+      },
+      {
+        type: 'context',
+        elements: [Markdown.field('Branch', branchName || '—')],
+      },
+      {
+        type: 'context',
+        elements: [Markdown.field('Commit', commitSha || '—')],
+      },
+      {
+        type: 'context',
+        elements: [Markdown.field('Repo', repoName || '—')],
+      },
+    ];
+  }
 
   const message = {
-    text: `${status}: ${branchName || build.id}`,
+    text: `${statusMsg.text}: ${type} for ${orgId || branchName || build.id}`,
+    color: statusMsg.color,
     blocks: [
       {
-        type: 'section',
-        text: mrkdwn(mrkdwnLink(logUrl, '*Build Logs*')),
+        type: 'context',
+        elements: [Markdown.markdown(Markdown.link(logUrl, 'Click here to view logs...'))],
       },
       {
-        type: 'section',
-        // limit 10
-        fields: [
-          mrkdwnField('Status', status),
-          mrkdwnField('Repo', repoName || 'n/a'),
-          mrkdwnField('Branch', branchName || 'n/a'),
-          mrkdwnField('Images', (images || []).join('\n')),
-          mrkdwnField('Commit', commitLink),
-          mrkdwnField('Tag', tagName || 'n/a'),
-          mrkdwnField('Start', mrkdwnTimestamp(startTime)),
-          mrkdwnField('Finish', mrkdwnTimestamp(finishTime)),
+        type: 'context',
+        elements: [
+          Markdown.markdown(`Type: *${type}*`),
+          Markdown.markdown(`Status: *${build.status}*`),
+          //
         ],
       },
+      ...(orgId
+        ? [
+            {
+              type: 'divider',
+            },
+            {
+              type: 'context',
+              elements: [Markdown.markdown('Organization ID\n`' + orgId + '`')],
+            },
+          ]
+        : []),
+
+      ...repoSection,
+
+      ...(tags.length > 0
+        ? [
+            {
+              type: 'divider',
+            },
+            {
+              type: 'context',
+              elements: [Markdown.field('Tags', (tags || []).map(x => '`' + x + '`').join('\n'))],
+            },
+          ]
+        : []),
+
+      // ...(images.length > 0
+      //   ? [
+      //       {
+      //         type: 'divider',
+      //       },
+      //       {
+      //         type: 'context',
+      //         elements: [Markdown.field('Images', (images || []).join('\n'))],
+      //       },
+      //     ]
+      //   : []),
     ],
   };
-
-  // build.steps.forEach(step => {
-  //   const a = moment(step.timing.endTime),
-  //     b = moment(step.timing.startTime),
-  //     duration = moment.duration(a.diff(b));
-
-  //   message.blocks.push({
-  //     type: "section",
-  //     fields: [
-  //       mrkdwn(`*Step:*\n${step.id}\n`),
-  //       mrkdwn(`*Duration:*\n${duration.as("seconds")}s\n`),
-  //       mrkdwn(`*Start:*\n${timestamp(step.timing.startTime)}\n`),
-  //       mrkdwn(`*Finish:*\n${timestamp(step.timing.endTime)}\n`)
-  //     ]
-  //   });
-  // });
 
   return message;
 };
