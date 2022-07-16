@@ -46,14 +46,14 @@ const statusCodes = {
 
 let { SLACK_WEBHOOK_URL, SLACK_WEBHOOK_URL_FAILURE } = process.env;
 
-// if (!SLACK_WEBHOOK_URL) {
-//   throw new Error('Missing required SLACK_WEBHOOK_URL environment variable.');
-// }
+if (!SLACK_WEBHOOK_URL) {
+  throw new Error('Missing required SLACK_WEBHOOK_URL environment variable.');
+}
 
-// const webhooks = {
-//   general: new IncomingWebhook(SLACK_WEBHOOK_URL),
-//   failure: SLACK_WEBHOOK_URL_FAILURE ? new IncomingWebhook(SLACK_WEBHOOK_URL_FAILURE) : null,
-// };
+const webhooks = {
+  general: new IncomingWebhook(SLACK_WEBHOOK_URL),
+  failure: SLACK_WEBHOOK_URL_FAILURE ? new IncomingWebhook(SLACK_WEBHOOK_URL_FAILURE) : null,
+};
 
 const failureStatuses = (() => {
   const statuses = process.env.SLACK_FAILURE_STATUSES;
